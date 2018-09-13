@@ -1,0 +1,82 @@
+---
+title: "Whole pipeline"
+author: "Dunja"
+date: "19/08/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This Vignette will present functionality of PrmoterOntology package. 
+To start with, we will obtain promoter annotations from BiomaRt and later, using CAGE data, we will update promoter coordinates. This is important step because alghough biomaRt annotations provide exhaustive annotation of genes, their promoter localisation is often off by some region because their gene annotations are based on available RNAseq data. 
+
+After creating promoter regions centered on dominant TSS, we will obtain JASPAR PolII core promoter collection of PWMs (data included in the package) and perform sequence scan with these PWMs. Sequence scans are known tao produce many false positive results. To go arround this problem we propose a method that extracts two coefficients from scan hits: localisation precision and motive accuracy. Hits that will have high values for both coefficients are considered to be true hits since they are correctly positioned and are very similar to PWM that was used to scan sequences. 
+In addition package provides information on PWM location constraints for PolII motives that can be used to additionally filter out hits appearing outside expected region. 
+For all remaining hits, we estimate optimal threshold for combined score that can be fruther used to filter out false positives. 
+
+Last step of promoter annotation is to create promoter_matrix, a dataset in which each row represents a promoter while columns are promoter features. 
+
+Having promoter matrix ready, we can start analysing our groups of genes for specific promoter features using po_main function. 
+
+
+
+### Obtain biomart promoter annotations
+
+```{r biomart promoters}
+library(biomaRt)
+library(BSgenome.Hsapiens.UCSC.hg19) ## for promoter sequences
+
+hg_mart <- useMart(host="grch37.ensembl.org",
+                   biomart='ENSEMBL_MART_ENSEMBL',
+                   dataset = "hsapiens_gene_ensembl")
+
+biomart_promoters <- get_biomart_promoters(hg_mart)
+### getting rid of scaffolds
+biomart_promoters <- biomart_promoters[grep("chr", seqnames(biomart_promoters))]
+```
+
+After obtaining Biomart gene annotations, lets overlapp it
+
+```{r}
+# read in tag clusters from CAGE experiment
+tc <- readRDS("~/Work/PromoterOnto/rds_files/tcGM12878.RDS")
+tc <- makeGRangesFromDataFrame(tc, keep.extra.columns = TRUE)
+
+cage_proms <- get_CAGE_promoters(tc_gr = tc, promoters = biomart_promoters)
+```
+
+
+Now that we have created CAGE centered promoters, lets obtain PWMs that will be used for sequence scan and scan promoters
+
+```{r scan sequences with PolII collection}
+data("pwmList")
+## pwmList contains 13 PWMs, since 2 of those are specific for Drosophilla, we will remove those
+TF_names <- c("MTE", "INR", "GC-box", "CCAAT-box", "DPE", "BREu", "BREd", "DCE_S_I", "DCE_S_II",
+              "DCE_S_III", "XCPE1", "TATA-box", "MED-1")
+
+pwmList <- pwmList[c(2:4, 6:13)]
+TF_names <- TF_names[c(2:4, 6:13)]
+
+prom_seq <- getSeq(Hsapiens, cage_proms)
+
+pwm_prom <- lapply(pwmList, function(x) scan_promoters(seq = prom_seq, pwm = x, min_score = "80%" ))
+
+
+```
+
+
+
+
+```{r evaluate hits}
+eval_threshold <- lapply(pwm_prom, find_threshold)
+warnin
+
+
+```
+
+
+
+
+
