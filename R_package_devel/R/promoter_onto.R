@@ -1,22 +1,24 @@
-promoter_onto <- function(promoter_matrix, sample, proms, label, features = c(2:14, 18:19), plot=TRUE, all=FALSE){
+promoter_onto <- function(promoter_matrix, sample, proms, features = c(2:14, 18:19), plot=TRUE, label, all=FALSE){
+  #' Overenrichment analysis of promoter features for a group of genes
+  #'
   #'
   #' Promoter_onto performs oveerenrichment analysis of promoter features for genes in sample compared to the background. Promoter_matrix object contains annotations of promoter features for a background set. Overenrichment analysis also looks at CAGE features like tpm expression and promoter interquantile width, for that reason promoter input is needed too. By default this function plots overenrichment plots as a pdf to the file in current directory.
   #'
-  #' @param promoter_matrix
-  #' @param sample
-  #' @param proms
-  #' @param label
-  #' @param features
-  #' @param plot
-  #' @param all
+  #' @param promoter_matrix promoter matrix that for each promoter (row), describes its core promoter features (columns)
+  #' @param sample gene names for which we will calculate overrepresentation of features
+  #' @param proms genomic ranges object containing promoters of all active genes centered on dominant TSS
+  #' @param features which features to test, provided as vector of column indices of promoter_matrix matrix
+  #' @param plot should results be presented in a form of a graph, if yes, file is going to be saved as PDF to working directory
+  #' @param label filename for the plot
+  #' @param all weather to report stats of all features (TRUE), or only significan ones (FALSE)
   #'
   #'
   #'
-  #' @return a list with significance
-  #' @importFrom
-  #' @importFrom
+  #' @return a list with significance features of overrepresentation test
+  #' @import tidyverse
+  #' @import GenomicRanges
   #'
-  #' @keywords
+  #' @keywords overrepresentation
   #' @export
   #'
   # function that plots all over/underrepresentation plots into a pdf

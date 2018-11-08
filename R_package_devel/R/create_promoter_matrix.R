@@ -1,20 +1,14 @@
 create_promoter_matrix <- function(all_hits, optimal_threshold, promoters){
   #'
+  #' A function that creates annotated promoter matrix from all PWM scan hits. To annotate promoters with PWM hits, we need to ensure that hit precision score is abouve specified threshold.
   #'
-  #' @param all_hits
-  #' @param optimal_threshold
-  #' @param promoters
-  #' @param
-  #' @param
-  #' @param
+  #' @param all_hits dataframe containing all hits obrained when scanning promoters
+  #' @param optimal_threshold threshold for each scanned PWM, either defined by user, or by find_threshold function
+  #' @param promoters GenomicRanges object containing promoters of all active genes in sample, centered on dominant TSS
   #'
   #'
   #'
   #' @return promoter_matrix object that for each promoter annotates
-  #' @importFrom
-  #' @importFrom
-  #'
-  #' @keywords
   #' @export
 
   ## winsorize all hits to quantiles

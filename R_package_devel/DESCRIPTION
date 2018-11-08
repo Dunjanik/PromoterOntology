@@ -5,6 +5,7 @@ Authors@R: person("Dunja", "Vucenovic", email = "dunja.vucenovic@gmail.com", rol
 Description: This package provides functions for core promoter annotation by provided PWMs and other genomic features like CpG island. 
 			In addition, given a set of promoters, provided functions enable overenrichment analysis of annotated core promoters.
 Depends: R (>= 3.4)
-License: What license is it under?
+License: GPL-2
 Encoding: UTF-8
 LazyData: true
+RoxygenNote: 6.0.1
