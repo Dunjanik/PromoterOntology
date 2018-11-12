@@ -4,7 +4,7 @@
 \alias{promoter_onto}
 \title{Overenrichment analysis of promoter features for a group of genes}
 \usage{
-promoter_onto(promoter_matrix, sample, proms, features = c(2:14, 18:19),
+promoter_onto(promoter_matrix, sample, proms, features = c(1:11, 16:17),
   plot = TRUE, label, all = FALSE)
 }
 \arguments{

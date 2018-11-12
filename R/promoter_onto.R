@@ -1,4 +1,4 @@
-promoter_onto <- function(promoter_matrix, sample, proms, features = c(2:14, 18:19), plot=TRUE, label, all=FALSE){
+promoter_onto <- function(promoter_matrix, sample, proms, features = c(1:11, 16:17), plot=TRUE, label, all=FALSE){
   #' Overenrichment analysis of promoter features for a group of genes
   #'
   #'
@@ -17,6 +17,8 @@ promoter_onto <- function(promoter_matrix, sample, proms, features = c(2:14, 18:
   #' @return a list with significance features of overrepresentation test
   #' @import tidyverse
   #' @import GenomicRanges
+  #' @import ggthemes
+  #' @import reshape2
   #'
   #' @keywords overrepresentation
   #' @export
@@ -87,7 +89,17 @@ promoter_onto <- function(promoter_matrix, sample, proms, features = c(2:14, 18:
                 tpm_dominant=wilcox.test(filter(to_plot, sample=="sample")$tpm.dominant_ctss, filter(to_plot, sample=="background")$tpm.dominant_ctss)$p.val,
                 iq=wilcox.test(filter(to_plot, sample=="sample")$interquantile_width, filter(to_plot, sample=="background")$interquantile_width)$p.val)
 
-  ###### all plots #######
+  to_plot_list <- split(to_plot, f = to_plot$sample)
+  to_plot_list <- lapply(to_plot_list, function(x){
+    apply(x[, 2:4], 2, mean)
+  })
+  cage_fold_enrich <- to_plot_list$sample / to_plot_list$background
+
+  cage_sig <- data.frame(feature = names(cage_sig),
+                         fold_enrich = cage_fold_enrich,
+                        pval = cage_sig)
+  cage_sig$class <- ifelse(cage_sig$fold_enrich > 1, "over", "under")
+    ###### all plots #######
   if(plot == TRUE){
     pdf(paste0(label, ".pdf"))
     plot(overTF_plot)
