@@ -49,7 +49,11 @@ plot_multiple_POs <- function(list_POs, use_cage=TRUE){
 
   plot <- ggplot(tf_df, aes(x=feature, y=pval, class=group, fill=group))+
     geom_bar(stat="identity", position=position_dodge())+
-    theme_minimal()+
+    theme_minimal()+ coord_flip() +
+    theme(axis.text.y = element_text(size=16),
+          axis.text.x = element_text(size=14),
+          axis.title.x = element_text(size=14),
+          axis.title.y = element_text(size=14))+
     geom_hline(yintercept = log10(0.05), colour="red", linetype=3)+
     geom_hline(yintercept = -log10(0.05), colour="red", linetype=3)+
     scale_fill_manual(values=wes_palette(n=(n+1), name="Darjeeling1", type="continuous")[2:(n+1)])+
