@@ -48,7 +48,7 @@ plot_multiple_POs <- function(list_POs, use_cage=TRUE){
   tf_df$pval <- tf_df$pval * ifelse(tf_df$class == "under", 1, -1)
 
   plot <- ggplot(tf_df, aes(x=feature, y=pval, class=group, fill=group))+
-    geom_bar(stat="identity", position=position_dodge())+
+    geom_bar(width=0.75, stat="identity", position=position_dodge())+
     theme_minimal()+ coord_flip() +
     theme(axis.text.y = element_text(size=16),
           axis.text.x = element_text(size=14),
