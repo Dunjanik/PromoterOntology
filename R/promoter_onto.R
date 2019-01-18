@@ -1,4 +1,4 @@
-promoter_onto <- function(promoter_matrix, sample, proms, features = c(1:11, 16:17), plot=TRUE, label, all=FALSE){
+promoter_onto <- function(promoter_matrix, sample, proms, features = c(1:11, 16:17), save_plot=TRUE, label, all=FALSE){
   #' Overenrichment analysis of promoter features for a group of genes
   #'
   #'
@@ -8,7 +8,7 @@ promoter_onto <- function(promoter_matrix, sample, proms, features = c(1:11, 16:
   #' @param sample gene names for which we will calculate overrepresentation of features
   #' @param proms genomic ranges object containing promoters of all active genes centered on dominant TSS
   #' @param features which features to test, provided as vector of column indices of promoter_matrix matrix
-  #' @param plot should results be presented in a form of a graph, if yes, file is going to be saved as PDF to working directory
+  #' @param save_plot should results be saved, or just presented in console, if yes, file is going to be saved as PDF to working directory
   #' @param label filename for the plot
   #' @param all weather to report stats of all features (TRUE), or only significan ones (FALSE)
   #'
@@ -19,6 +19,8 @@ promoter_onto <- function(promoter_matrix, sample, proms, features = c(1:11, 16:
   #' @import GenomicRanges
   #' @import ggthemes
   #' @import reshape2
+  #' @import ggplot2
+  #' @import wesanderson
   #'
   #' @keywords overrepresentation
   #' @export
@@ -59,17 +61,25 @@ promoter_onto <- function(promoter_matrix, sample, proms, features = c(1:11, 16:
                                      axis.text = element_text(size = rel(1.4)))
 
   ### CAGE features
-  feats_to_add <- mcols(proms)[, c(1:2, 5:7, 10)]
-  promoter_matrix <- merge(promoter_matrix, feats_to_add, by.x= "gene", by.y="external_gene_name")
+  feats_to_add <- mcols(proms)[, c("external_gene_name", "ensembl_gene_id", "nr_ctss",
+                                   "tpm", "tpm.dominant_ctss", "interquantile_width")]
+  colnames(feats_to_add)[1] <- "gene"
+
+  ## make sure promoter matrix doesnt have "tpm", "iq" columns
+  cols <- c("tpm", "tpm.dominant_ctss", "interquantile_width")
+  p <- which(colnames(promoter_matrix) %in% cols)
+  promoter_matrix <- promoter_matrix[, -p]
+  promoter_matrix <- merge(promoter_matrix, feats_to_add, by="gene")
   rm(feats_to_add)
 
   # I have noticed that i have some suplicated entries. Will get rid of those
   promoter_matrix <- promoter_matrix[!duplicated(promoter_matrix$ensembl_gene_id), ]
+  promoter_matrix <- as.data.frame(promoter_matrix)
+  promoter_matrix <- promoter_matrix %>% group_by(gene) %>% arrange(gene, desc(tpm)) %>% top_n(1, wt = "tpm")
 
   # CAGE features are not norm distributed
   n <- ncol(promoter_matrix)
-  to_plot <- promoter_matrix[, c(1, (n-2):n)]
-  colnames(to_plot) <- c("gene", "tpm", "tpm.dominant_ctss", "interquantile_width")
+  to_plot <- promoter_matrix[, c("gene", "tpm", "tpm.dominant_ctss", "interquantile_width")]
   to_plot$sample <- "background"
   to_plot$sample[to_plot$gene %in% sample] <- "sample"
   to_plot <- as.data.frame(to_plot)
@@ -100,12 +110,16 @@ promoter_onto <- function(promoter_matrix, sample, proms, features = c(1:11, 16:
                         pval = cage_sig)
   cage_sig$class <- ifelse(cage_sig$fold_enrich > 1, "over", "under")
     ###### all plots #######
-  if(plot == TRUE){
+  if(save_plot == TRUE){
     pdf(paste0(label, ".pdf"))
     plot(overTF_plot)
     plot(underTF_plot)
     plot(cage_plot)
     dev.off()
+  }else{
+    plot(overTF_plot)
+    plot(underTF_plot)
+    plot(cage_plot)
   }
 
   ######### significant features #######

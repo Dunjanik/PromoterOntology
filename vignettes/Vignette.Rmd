@@ -1,30 +1,39 @@
 ---
-title: "Whole pipeline"
+title: "PromoterOntology vignette"
 author: "Dunja"
-date: "19/08/2018"
-output: html_document
+date: 'Sys.Date()'
+output: 
+  rmarkdown::html_vignette:
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+set.seed(225)
 ```
 
-This Vignette will present functionality of PrmoterOntology package. 
-To start with, we will obtain promoter annotations from BiomaRt and later, using CAGE data, we will update promoter coordinates. This is important step because alghough biomaRt annotations provide exhaustive annotation of genes, their promoter localisation is often off by some region because their gene annotations are based on available RNAseq data. 
+This Vignette will present functionality of `PromoterOntology` package. 
 
-After creating promoter regions centered on dominant TSS, we will obtain JASPAR PolII core promoter collection of PWMs (data included in the package) and perform sequence scan with these PWMs. Sequence scans are known tao produce many false positive results. To go arround this problem we propose a method that extracts two coefficients from scan hits: localisation precision and motive accuracy. Hits that will have high values for both coefficients are considered to be true hits since they are correctly positioned and are very similar to PWM that was used to scan sequences. 
-In addition package provides information on PWM location constraints for PolII motives that can be used to additionally filter out hits appearing outside expected region. 
-For all remaining hits, we estimate optimal threshold for combined score that can be fruther used to filter out false positives. 
+`PromoterOntology` package provides functionality to obtain promoters, annotate them with user specified features and after annotating a group of genes, do an over-enrichment analysis for promoter features. 
 
-Last step of promoter annotation is to create promoter_matrix, a dataset in which each row represents a promoter while columns are promoter features. 
+Here, we will go through each of the steps mentioned above. 
 
-Having promoter matrix ready, we can start analysing our groups of genes for specific promoter features using po_main function. 
+```{r load_promOnto, message=FALSE, warning=FALSE}
+library(PromoterOntology)
+library(dplyr)
+```
 
 
+## Obtain biomart promoter annotations and create promoter regions
 
-### Obtain biomart promoter annotations
+To start the analysis, we will obtain gene annotations from `Biomart`. Gene annotations from `Biomart` are based on available RNAseq data that is not capturing promoters well. For more accurate promoter position, we will update `Biomart` promoter coordinates using CAGE data. This is an important step since all downstream analyses depend on accurate promoter coordinates.
 
-```{r biomart promoters}
+In this Vignette we will use we will use hg19 gene annotations and CAGE data from FANTOM5 GM12878 cell line. 
+
+```{r biomart promoters, message=FALSE, warning=FALSE}
 library(biomaRt)
 library(BSgenome.Hsapiens.UCSC.hg19) ## for promoter sequences
 
@@ -37,46 +46,156 @@ biomart_promoters <- get_biomart_promoters(hg_mart)
 biomart_promoters <- biomart_promoters[grep("chr", seqnames(biomart_promoters))]
 ```
 
-After obtaining Biomart gene annotations, lets overlapp it
+CAGE data used in this Vignette is used in form of tagClusters, clustered CAGE start sites with information on dominant start position. TagCluster object is obtained from `CAGEr` package as a data frame. For the example in this vignette we included TagCluster object for GM12878 cell line.
+TagClusters are overlapped with Biomart annotated promoters. In case there are multiple TagClusters overlapping a single promoter, we will keep only the most strongly expressed TagCluster. 
+Created promoters are centered on dominant Transcription Start Site (dTSS) and extended by 500 nt from both sides. 
 
-```{r}
+For the benefit of speed of Vignette rendering, we will subset promoters to 200 random promoters. 
+
+
+```{r, warning=FALSE, message=FALSE}
 # read in tag clusters from CAGE experiment
 tc <- readRDS("~/Work/PromoterOnto/rds_files/tcGM12878.RDS")
 tc <- makeGRangesFromDataFrame(tc, keep.extra.columns = TRUE)
 
 cage_proms <- get_CAGE_promoters(tc_gr = tc, promoters = biomart_promoters)
+
+cage_subset <- cage_proms[sample(1:length(cage_proms), 200)]
 ```
 
 
-Now that we have created CAGE centered promoters, lets obtain PWMs that will be used for sequence scan and scan promoters
+## Promoter annotation
 
-```{r scan sequences with PolII collection}
+After creating promoter regions centred on dominant TSS, we will obtain JASPAR PolII core promoter collection of PWMs *(data included in the package and can be found by calling "pwmList")* and perform sequence scan with these PWMs. 
+
+In case of analysis in this vignette, we are working with human sample, so from JASPAR core promoter motives, we will omit **MTE** and **DPE** motives since they have been shown to be Drosophilla specific. 
+
+
+```{r scan sequences with PolII collection, message=FALSE, warning=FALSE}
 data("pwmList")
 ## pwmList contains 13 PWMs, since 2 of those are specific for Drosophilla, we will remove those
 TF_names <- c("MTE", "INR", "GC-box", "CCAAT-box", "DPE", "BREu", "BREd", "DCE_S_I", "DCE_S_II",
               "DCE_S_III", "XCPE1", "TATA-box", "MED-1")
 
+### remove Drosophila specific motives
 pwmList <- pwmList[c(2:4, 6:13)]
 TF_names <- TF_names[c(2:4, 6:13)]
 
-prom_seq <- getSeq(Hsapiens, cage_proms)
+prom_seq <- getSeq(Hsapiens, cage_subset)
 
 pwm_prom <- lapply(pwmList, function(x) scan_promoters(seq = prom_seq, pwm = x, min_score = "80%" ))
-
-
+names(pwm_prom) <- TF_names
 ```
 
+`pwm_prom` is a list that contains results of sequence scan, where each sublist represents one PWM motif scan. Sublists are dataframes that contain information about hits position, its score and sequence motif itself. 
 
+Sequence scans are known to produce many false positive results. To go around this problem we propose a method that extracts two coefficients from scan hits: **localisation precision** and **motive accuracy**. Hits that will have high values for both coefficients are considered to be true hits since they are correctly positioned and are very similar to PWM that was used to scan sequences. 
 
+Localisation precision reports how likely it is that reported hit is found on a correct position. Based on distribution of all hits from all promoters, a probability of hit appearing at each position along promoter region was calculated.
 
-```{r evaluate hits}
+Motive accuracy informs how similar identified motif is to the feature PWM.
+
+For many core promoter motives a region in which they can be found has been identified. The package provides information on these PWM location constraints for PolII motives. These can be used to additionally filter out hits appearing outside the expected promoter region. 
+
+For all remaining hits, we estimate an optimal threshold for the combined score of localisation precision and motive accuracy that can be further used to filter out false positives. 
+
+Since in this example we have significantly reduced number of promoters we are working with, for some motives there will be too few hits to confidently calculate thresholds, so we will omit those. 
+
+```{r evaluate hits, warning=FALSE}
+library(inflection)
 eval_threshold <- lapply(pwm_prom, find_threshold)
-warnin
+names(eval_threshold) <- TF_names
+## filter all sequence scan hits that are below threshold
 
+keep_me <- sapply(eval_threshold, function(x) !is.na(x))
+
+pwm_prom <- mapply(function(x, y) filter_hits(all_hits = x, threshold = y), 
+               x = pwm_prom[keep_me], y = eval_threshold[keep_me], SIMPLIFY = FALSE)
 
 ```
 
 
+#### Create promoter matrix object
+
+A promoter_matrix object is a dataset in which each row represents a promoter while columns are promoter features. 
+
+```{r create_prom_matrix, message=FALSE, warning=FALSE}
+prom_matrix <- matrix(0, nrow=length(cage_subset), ncol = length(pwm_prom))
+colnames(prom_matrix) <- names(pwm_prom)
+rownames(prom_matrix) <- 1:length(cage_subset)
+
+for(i in 1:length(pwm_prom)){
+  pwm_prom[[i]]$seqnames <- as.numeric(as.character(pwm_prom[[i]]$seqnames))
+  prom_matrix[pwm_prom[[i]]$seqnames, i] <- 1
+}
+
+prom_matrix <- as.data.frame(prom_matrix)
+prom_matrix$gene <- mcols(cage_subset)$external_gene_name
+prom_matrix <- cbind(prom_matrix, mcols(cage_subset)[, c("ensembl_gene_id", "gene_biotype")])
+
+```
 
 
+#### Annotate with CpG and bidirectionality information 
 
+Information about bidirectional genes and CpG islands for hg19 has been provided by the package. To annotate promoters with bidirectionality information we will overlap these two dayasets by their ensamble_gene_id. 
+
+```{r annotate CpG and bidir, message=FALSE, warning=FALSE}
+data(bidir)
+
+prom_matrix$bidir <- 0
+prom_matrix$bidir[prom_matrix$ensembl_gene_id %in% bidir$ENSEMBL] <- 1
+
+### annotate CpG islands
+data(cgi)
+
+promsGM_cgi <- resize(cage_subset, 200, fix = "center")
+promsGM_cgi <- resize(promsGM_cgi, 100, fix="start")
+over <- findOverlaps(promsGM_cgi, cgi)
+
+prom_matrix$cgi <- 0
+prom_matrix$cgi[prom_matrix$promIndex %in% unique(queryHits(over))] <- 1
+```
+
+
+### Analysing overrepresentation
+
+Having promoter matrix ready, we can start analysing our groups of genes for specific promoter features using promoter_onto function. 
+
+To run an overrepresentation test, we need to have a subset of promoters for which we want to test if they have significantly enriched promoter features. 
+In this example we will randomly subset 30 promoters
+```{r run_prom_onto_and_plot,  fig.height=6, fig.width=6}
+
+gene_sample <- prom_matrix$gene[sample(1:nrow(prom_matrix), 30)]
+
+overrep <- promoter_onto(promoter_matrix = prom_matrix, 
+                         sample = gene_sample, 
+                         proms = cage_subset,
+                         features = c(1:6, 10:11),
+                         label = "Vignette example", 
+                         all = TRUE, save_plot = FALSE)
+
+overrep
+```
+
+
+### Comparing multiple categories 
+
+```{r plot_multiple_POs,  fig.height=5, fig.width=5}
+
+## create 4 random groups of genes
+gene_sample_list <- list()
+for(i in 1:4){
+  gene_sample_list[[i]] <- prom_matrix$gene[sample(1:nrow(prom_matrix), 30)]
+}
+
+overrep_list <- lapply(gene_sample_list, function(x) promoter_onto(promoter_matrix = prom_matrix, 
+                         sample = x, 
+                         proms = cage_subset,
+                         features = c(1:6, 10:11), 
+                         all = TRUE, save_plot = TRUE, 
+                         label="multiple groups"))
+names(overrep_list) <- paste0("group_", 1:4)
+
+plot_multiple_POs(overrep_list) + ggplot2::ggtitle("Overenrichment of promoter features for \n 4 randomly created gene groups")
+```

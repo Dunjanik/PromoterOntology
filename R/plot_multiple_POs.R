@@ -11,7 +11,7 @@ plot_multiple_POs <- function(list_POs, use_cage=TRUE){
   #' @return plot object to which you can add extra ggplot parameters
   #' @import tidyverse
   #'
-  #'
+  #' @export
 
   n <- length(list_POs)
 
@@ -47,7 +47,21 @@ plot_multiple_POs <- function(list_POs, use_cage=TRUE){
   ## lets see if this is going to help with plotting
   tf_df$pval <- tf_df$pval * ifelse(tf_df$class == "under", 1, -1)
 
-  plot <- ggplot(tf_df, aes(x=feature, y=pval, class=group, fill=group))+
+  ## reorder features on the graph based on significance
+  order <- tf_df %>% group_by(feature) %>% summarise(cum = sum(abs(pval))) %>%
+    arrange(cum) %>% dplyr::select(feature)
+  order <- order$feature
+  tf_df$feature <- factor(tf_df$feature, levels = order)
+
+  ## coords for annotation text
+  coords <- c(min(tf_df$pval), max(tf_df$pval))
+
+  ## number of features to serve as coordinates for hline
+  l <- length(unique(tf_df$feature))
+  l <- 1:(l-1)
+  l <- l + 0.5
+
+  pl <- ggplot(tf_df, aes(x=feature, y=pval, class=group, fill=group))+
     geom_bar(width=0.75, stat="identity", position=position_dodge())+
     theme_minimal()+ coord_flip() +
     theme(axis.text.y = element_text(size=16),
@@ -57,9 +71,12 @@ plot_multiple_POs <- function(list_POs, use_cage=TRUE){
     geom_hline(yintercept = log10(0.05), colour="red", linetype=3)+
     geom_hline(yintercept = -log10(0.05), colour="red", linetype=3)+
     scale_fill_manual(values=wes_palette(n=(n+1), name="Darjeeling1", type="continuous")[2:(n+1)])+
+    geom_vline(xintercept = l, colour="grey", linetype=3)+
     ylab("-log10(pval)")+
-    labs(subtitle="BH multiple testing corrected")
+    labs(subtitle="BH multiple testing corrected")+
+    annotate("text", y = coords[1] - coords[1]/8 , x = 1, label = "italic(Depleted)", parse = TRUE) +
+    annotate("text", y = coords[2] - coords[2]/8, x = 1, label = "italic(Enriched)", parse = TRUE)
 
-  return(plot)
+  return(pl)
 
 }

@@ -13,7 +13,7 @@ find_threshold <- function(all_hits, constraints="default"){
   #'
   #'
   #' @return suggested threshold value for filtering out false positive hits
-  #' @importFrom inflection findiplist
+  #' @import inflection
   #'
   #' @keywords
   #' @export
@@ -33,14 +33,15 @@ find_threshold <- function(all_hits, constraints="default"){
 
   ### combine scores
   norm_score$comb <- norm_score$normScore * norm_score$loc_prob
+  norm_score <- norm_score[norm_score$comb < 0.6, ]
   norm_score <- norm_score[order(norm_score$comb, decreasing = TRUE), ]
 
   ## lets have only one-best hit per promoter
   norm_score <- norm_score[!duplicated(norm_score$seqnames), ]
 
   if (constraints == "default"){
-    #data("tf_constraints")
-    n <- which(tf_constraints$TF == unique(norm_score$TF))
+    data("tf_constraints")
+    n <- which(tf_constraints$TF == as.character(unique(norm_score$TF)))
     if (length(n) == 0){
       message("No position constraints choosen.")
       cons <- unique(norm_score$start)
@@ -60,9 +61,17 @@ find_threshold <- function(all_hits, constraints="default"){
 
   norm_score <- norm_score[norm_score$start %in% cons, ]
 
+  ## if norm_score has less than 10 rows, not possible to impute threshold.
+
+  if(nrow(norm_score) < 10){
+    message("There are not enough hits to impute optimal threshold")
+    return(NA)
+  }
+
+
   ## after filtering out hits outside defined regions define optimal threshold for combined score
 
-  diff_x <- diff(norm_score$comb)
+  diff_x <- diff(smooth(norm_score$comb))
 
   nr <- length(diff_x)
   w <- 5
@@ -75,8 +84,8 @@ find_threshold <- function(all_hits, constraints="default"){
 
   infl <- c(FALSE, diff(abs(diff(norm_score$comb))>0)!=0)
 
-  A <- findiplist(norm_score$comb, 1:nrow(norm_score), 0, doparallel=TRUE)
-  thr <- c(norm_score$comb[max(whi) + 1], A[1, 3])
+  A <- as.data.frame(findiplist(norm_score$comb, 1:nrow(norm_score), 0, doparallel=TRUE))
+  thr <- c(norm_score$comb[max(whi) + 1], min(A$chi, na.rm=TRUE))
 
   optimal_threshold <- thr[which.min(thr)]
 

@@ -5,7 +5,7 @@
 \title{Overenrichment analysis of promoter features for a group of genes}
 \usage{
 promoter_onto(promoter_matrix, sample, proms, features = c(1:11, 16:17),
-  plot = TRUE, label, all = FALSE)
+  save_plot = TRUE, label, all = FALSE)
 }
 \arguments{
 \item{promoter_matrix}{promoter matrix that for each promoter (row), describes its core promoter features (columns)}
@@ -16,7 +16,7 @@ promoter_onto(promoter_matrix, sample, proms, features = c(1:11, 16:17),
 
 \item{features}{which features to test, provided as vector of column indices of promoter_matrix matrix}
 
-\item{plot}{should results be presented in a form of a graph, if yes, file is going to be saved as PDF to working directory}
+\item{save_plot}{should results be saved, or just presented in console, if yes, file is going to be saved as PDF to working directory}
 
 \item{label}{filename for the plot}
 

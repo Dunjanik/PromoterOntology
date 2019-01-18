@@ -14,7 +14,7 @@ get_CAGE_promoters <- function (tc_gr, promoters, keep_all_promoters = FALSE, up
   #'
   #' @return a promoter regions centered on dominant TSS extracted from CAGE tag clusters
   #' @importFrom GenomicRanges resize findOverlaps
-  #' @importFrom dplyr arrange
+  #' @import dplyr
   #'
   #' @keywords promoters
   #' @export
