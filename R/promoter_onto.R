@@ -111,7 +111,7 @@ promoter_onto <- function(promoter_matrix, sample, proms, features = c(1:11, 16:
   cage_sig$class <- ifelse(cage_sig$fold_enrich > 1, "over", "under")
     ###### all plots #######
   if(save_plot == TRUE){
-    pdf(paste0(label, ".pdf"))
+    pdf(paste0(label, ".pdf"), useDingbats = FALSE)
     plot(overTF_plot)
     plot(underTF_plot)
     plot(cage_plot)
