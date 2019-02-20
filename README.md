@@ -20,3 +20,8 @@ For every new tissue analysis, this is the order of steps to take in order to ge
     Create matrix where for each promoter summarise which TFs are most likely bound
     Run hypergeometric test for set of genes provided
 
+
+
+
+
+The project leading to this application has received funding from the European Union’s Horizon 2020 research and innovation programme under the Marie Sklodowska-Curie grant agreement No 643062
